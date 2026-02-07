@@ -2,7 +2,11 @@
 
 有以下两种方式进行：
 
-1、可根据命令自行打包成EXE，先运行pyinstaller CSUAutoNet.spec --noconfirm --clean，再运行powershell -NoProfile -Command "if (Test-Path .\dist\CSUAutoNet.exe) { (Get-Item .\dist\CSUAutoNet.exe).FullName; (Get-Item .\dist\CSUAutoNet.exe).Length; (Get-Item .\dist\CSUAutoNet.exe).LastWriteTime } else { exit 1 }"
+1、可根据命令自行打包成EXE
+
+先运行：pyinstaller CSUAutoNet.spec --noconfirm --clean
+
+再运行：powershell -NoProfile -Command "if (Test-Path .\dist\CSUAutoNet.exe) { (Get-Item .\dist\CSUAutoNet.exe).FullName; (Get-Item .\dist\CSUAutoNet.exe).Length; (Get-Item .\dist\CSUAutoNet.exe).LastWriteTime } else { exit 1 }"
 
 
 2、可执行软件EXE可在百度网盘链接下载 通过网盘分享的文件：CSUAutoNet.exe 链接: https://pan.baidu.com/s/1Bj39GMdu3W9Cy9VKrs1xLw?pwd=gf6y 提取码: gf6y
