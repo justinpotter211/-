@@ -28,7 +28,7 @@ import winreg
 
 
 APP_NAME = "CSUAutoNet"
-APP_VERSION = "0.0.2"
+APP_VERSION = "1.0.0"
 DEFAULT_SSID = "CSU-WIFI"
 PORTAL_HOST = "portal.csu.edu.cn"
 
@@ -2191,7 +2191,7 @@ def run_gui(log_path: Optional[Path], *, start_minimized: bool, auto_start: bool
 
         messagebox.showinfo(
             "关于",
-            f"CSU 自动联网助手\n\n版本：{APP_VERSION}\n作者：李炎龙\n\n功能：在连接校园网时自动完成门户认证，"
+            f"CSU 自动联网助手\n\n版本：{APP_VERSION}\n作者：炎龙大侠\n\n功能：在连接校园网时自动完成门户认证，"
             "支持快速登录、断网重连与开机自启，并可在后台托盘运行。",
         )
 
