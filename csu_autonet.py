@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import socket
 import base64
 import subprocess
@@ -1258,6 +1259,11 @@ def portal_login_via_browser(config: AppConfig, creds: Credentials) -> bool:
 
             driver.get(url)
             wait = WebDriverWait(driver, 15)
+            try:
+                suffix_map = _extract_isp_suffix_map(driver.page_source)
+            except Exception:
+                suffix_map = {}
+            isp_suffix = (suffix_map.get(sid) or _drcom_account_suffix(sid) or "").strip()
 
             user_el = _find_first(
                 wait,
@@ -1295,6 +1301,7 @@ def portal_login_via_browser(config: AppConfig, creds: Credentials) -> bool:
                     """
 const sid = arguments[0];
 const field = arguments[1];
+const isp_suffix = arguments[2];
 const set = (name, value) => {
   const el = document.querySelector(`[name="${name}"]`);
   if (!el) return;
@@ -1304,9 +1311,47 @@ const set = (name, value) => {
 };
 set('R1', '0'); set('R2', '0'); set('R3', '0');
 set(field, sid);
+
+const pickIspSelect = (suffix) => {
+  const sel = document.querySelector('select[name="ISP_select"]');
+  if (!sel) return false;
+  let target = null;
+  const opts = Array.from(sel.options || []);
+  if (suffix !== null && suffix !== undefined) {
+    target = opts.find(o => (o && o.value) === suffix) || null;
+  }
+  if (!target && sid === '1') {
+    target = opts.find(o => o && o.value !== '-1') || null;
+  }
+  if (!target) return false;
+  sel.value = target.value;
+  try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+  try { sel.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+  return true;
+};
+
+const pickIspRadio = (suffix) => {
+  const box = document.querySelector('div[name="ISP_radio"]');
+  if (!box) return false;
+  const inputs = Array.from(box.querySelectorAll('input[name="network"]') || []);
+  let target = null;
+  if (suffix !== null && suffix !== undefined) {
+    target = inputs.find(i => i && i.value === suffix) || null;
+  }
+  if (!target && sid === '1') {
+    target = inputs.find(i => i && i.value !== '-1') || null;
+  }
+  if (!target) return false;
+  try { target.click(); } catch (e) {}
+  return true;
+};
+
+pickIspSelect(isp_suffix);
+pickIspRadio(isp_suffix);
 """,
                     sid,
                     field,
+                    isp_suffix,
                 )
             except Exception:
                 pass
@@ -1403,6 +1448,33 @@ set(field, sid);
             pass
 
 
+def _autorun_target_exe_path() -> Path:
+    """返回用于开机自启的稳定 EXE 路径（仅打包模式有效）。"""
+
+    return _app_data_dir() / f"{APP_NAME}.exe"
+
+
+def _ensure_autorun_executable() -> str:
+    """确保自启使用的可执行文件存在于稳定路径，并返回应写入注册表的 EXE 路径。"""
+
+    if not _is_frozen():
+        return sys.executable
+    _ensure_dirs()
+    src = Path(sys.executable)
+    dst = _autorun_target_exe_path()
+    try:
+        if src.exists():
+            try:
+                if src.resolve() != dst.resolve():
+                    shutil.copy2(str(src), str(dst))
+            except Exception:
+                if not dst.exists():
+                    shutil.copy2(str(src), str(dst))
+    except Exception:
+        return str(src)
+    return str(dst if dst.exists() else src)
+
+
 def portal_auto_login(config: AppConfig, creds: Credentials) -> bool:
     """执行一次自动登录（优先 HTTP，失败后回退到浏览器自动填充）。"""
 
@@ -1445,7 +1517,8 @@ def _startup_command_line() -> str:
     """构造自启动时执行的命令行（GUI 模式）。"""
 
     if _is_frozen():
-        return f"\"{sys.executable}\" gui --start-minimized --auto-start"
+        exe = _ensure_autorun_executable()
+        return f"\"{exe}\" gui --start-minimized --auto-start"
     script_path = str(Path(__file__).resolve())
     pythonw = _pythonw_path()
     return f"\"{pythonw}\" \"{script_path}\" gui --start-minimized --auto-start"
@@ -1836,6 +1909,15 @@ def run_gui(log_path: Optional[Path], *, start_minimized: bool, auto_start: bool
     var_autorun = tk.BooleanVar(value=is_autorun_enabled())
     var_browser_headless = tk.BooleanVar(value=bool(getattr(config, "browser_headless", True)))
     var_auto_open_portal = tk.BooleanVar(value=bool(getattr(config, "auto_open_portal_page", False)))
+
+    try:
+        if bool(var_autorun.get()):
+            desired = _startup_command_line()
+            current = _get_run_key(APP_NAME) or ""
+            if current.strip() != desired.strip():
+                _set_run_key(APP_NAME, desired)
+    except Exception:
+        pass
 
     carrier_to_sid: dict[str, str] = {"中国移动": "1", "中国电信": "2", "中国联通": "3"}
     sid_to_carrier: dict[str, str] = {v: k for k, v in carrier_to_sid.items()}
